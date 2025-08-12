@@ -26,15 +26,12 @@ class FinancialRAG:
         
         # Add PDF content if available
         if textbook_path and os.path.exists(textbook_path):
-            logger.info(f"Loading PDF textbook: {textbook_path}")
             pdf_chunks = self._process_pdf_textbook(textbook_path)
             self.knowledge_chunks.extend(pdf_chunks)
-            logger.info(f"Added {len(pdf_chunks)} chunks from PDF")
         
         # Create embeddings for all chunks
         chunk_texts = [chunk['text'] for chunk in self.knowledge_chunks]
         self.chunk_embeddings = self.embedder.encode(chunk_texts)
-        logger.info(f"Total knowledge chunks: {len(self.knowledge_chunks)}")
     
     def _get_financial_rules(self) -> List[Dict]:
         """Core financial calculation rules from FinanceQA paper and common practices"""
@@ -81,27 +78,22 @@ class FinancialRAG:
                     try:
                         page_text = page.extract_text()
                         if page_text.strip():
-                            full_text += f"\n--- Page {page_num + 1} ---\n{page_text}"
-                    except Exception as e:
-                        logger.warning(f"Error extracting page {page_num + 1}: {e}")
+                            full_text += f"\n{page_text}"
+                    except:
                         continue
                 
                 if not full_text.strip():
-                    logger.warning("No text extracted from PDF")
                     return []
                 
                 # Try to identify table of contents for better chunking
                 toc_sections = self._extract_toc_sections(full_text)
                 
                 if toc_sections:
-                    logger.info(f"Found {len(toc_sections)} sections from table of contents")
                     return self._create_section_chunks(full_text, toc_sections)
                 else:
-                    logger.info("No clear table of contents found, using paragraph-based chunking")
                     return self._create_paragraph_chunks(full_text)
                     
-        except Exception as e:
-            logger.error(f"Error processing PDF {pdf_path}: {e}")
+        except:
             return []
     
     def _extract_toc_sections(self, text: str) -> List[str]:

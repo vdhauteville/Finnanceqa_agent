@@ -137,91 +137,36 @@ FINAL ANSWER: [Your final answer with units/explanation]
             }
     
     def evaluate_on_dataset(self, csv_path: str, subset_size: Optional[int] = None, 
-                          random_subset: bool = True, max_workers: int = 3, random_seed: int = 42, 
-                          delay_between_requests: float = 0.5) -> BenchmarkResults:
-        """
-        Evaluate agent on dataset with parallel processing
-        
-        Args:
-            csv_path: Path to CSV file
-            subset_size: Number of questions to test (None = all)
-            random_subset: If True, randomly sample subset; if False, take first N
-            max_workers: Number of parallel threads (default: 3, reduced for rate limiting)
-            random_seed: Seed for reproducible random sampling (default: 42)
-            delay_between_requests: Delay in seconds between requests (default: 0.5)
-        """
+                          random_subset: bool = True, max_workers: int = 2, random_seed: int = 42) -> BenchmarkResults:
+        """Evaluate agent on dataset"""
         start_time = time.time()
         
-        logger.info(f"Loading dataset from {csv_path}")
+        # Load dataset
+        df = pd.read_csv(csv_path)
+        if subset_size and subset_size < len(df):
+            df = df.sample(n=subset_size, random_state=random_seed) if random_subset else df.head(subset_size)
         
-        try:
-            df = pd.read_csv(csv_path)
-            required_cols = ['context', 'question', 'answer']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                raise ValueError(f"Missing columns: {missing_cols}")
-            
-            # Handle subset selection
-            if subset_size and subset_size < len(df):
-                if random_subset:
-                    df = df.sample(n=subset_size, random_state=random_seed)
-                    logger.info(f"Using random subset of {subset_size} questions")
-                else:
-                    df = df.head(subset_size)
-                    logger.info(f"Using first {subset_size} questions")
-            else:
-                logger.info(f"Using full dataset: {len(df)} questions")
-            
-        except Exception as e:
-            logger.error(f"Error loading dataset: {e}")
-            return BenchmarkResults(0.0, {}, [], 0, 0)
-        
-        # Prepare question data for parallel processing
+        # Prepare question data
         question_data = []
         for idx, row in df.iterrows():
-            question_id = f"q_{idx}"
-            question = str(row['question'])
-            # Fix: Properly handle null/NaN context values for conceptual questions
-            raw_context = row.get('context', '')
-            if pd.isna(raw_context) or raw_context is None:
-                context = ''
-            else:
-                context = str(raw_context)
-            expected = str(row['answer'])
-            
-            # Normalize question type
-            q_type_raw = str(row.get('question_type', '')).lower()
-            if 'assumption' in q_type_raw:
-                q_type = 'assumption_tactical'
-            elif 'conceptual' in q_type_raw:
-                q_type = 'conceptual'
-            else:
-                q_type = 'basic_tactical' if context.strip() else 'conceptual'
+            context = '' if pd.isna(row.get('context', '')) else str(row.get('context', ''))
+            q_type = 'basic_tactical' if context.strip() else 'conceptual'
             
             question_data.append({
-                'question_id': question_id,
-                'question': question,
+                'question_id': f"q_{idx}",
+                'question': str(row['question']),
                 'context': context,
-                'expected': expected,
+                'expected': str(row['answer']),
                 'q_type': q_type
             })
-        
-        logger.info(f"Starting parallel processing with {max_workers} workers...")
         
         # Process questions in parallel
         results = []
         completed_count = 0
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks with staggered delays
-            future_to_data = {}
-            for i, data in enumerate(question_data):
-                # Add small delay between submissions to avoid overwhelming API
-                if i > 0:
-                    time.sleep(delay_between_requests / max_workers)
-                future_to_data[executor.submit(self._process_single_question, data)] = data
+            future_to_data = {executor.submit(self._process_single_question, data): data for data in question_data}
             
-            # Collect results as they complete
             for future in as_completed(future_to_data):
                 try:
                     result = future.result()
@@ -237,40 +182,25 @@ FINAL ANSWER: [Your final answer with units/explanation]
                                   f"Elapsed: {elapsed:.1f}s")
                 
                 except Exception as e:
-                    data = future_to_data[future]
-                    logger.error(f"Error processing {data['question_id']}: {e}")
-                    
-                    # Handle rate limit errors differently - don't count as incorrect
-                    if "rate_limit" in str(e).lower() or "429" in str(e):
-                        logger.warning(f"Skipping {data['question_id']} due to persistent rate limiting")
-                        # Skip this question entirely rather than marking as incorrect
-                        continue
-                    else:
-                        # Create failed result for genuine errors
-                        results.append(EvaluationResult(
-                            data['question_id'], data['question'], f"Error: {e}", 
-                            data['expected'], False, 0.0, data['q_type'], str(e), False, ""
-                        ))
+                    # Skip failed questions
                     completed_count += 1
+                    continue
         
-        # Calculate final metrics
+        # Calculate metrics
         total = len(results)
         correct = sum(1 for r in results if r.is_correct)
         overall_accuracy = correct / total if total > 0 else 0
         
-        # Calculate by-type accuracy
-        type_counts = {'basic_tactical': 0, 'assumption_tactical': 0, 'conceptual': 0}
-        type_correct = {'basic_tactical': 0, 'assumption_tactical': 0, 'conceptual': 0}
-        
+        # By-type accuracy
+        type_counts = {}
+        type_correct = {}
         for r in results:
-            type_counts[r.question_type] += 1
+            q_type = r.question_type
+            type_counts[q_type] = type_counts.get(q_type, 0) + 1
             if r.is_correct:
-                type_correct[r.question_type] += 1
+                type_correct[q_type] = type_correct.get(q_type, 0) + 1
         
-        by_type_accuracy = {}
-        for q_type in type_counts:
-            if type_counts[q_type] > 0:
-                by_type_accuracy[q_type] = type_correct[q_type] / type_counts[q_type]
+        by_type_accuracy = {q: type_correct.get(q, 0) / type_counts[q] for q in type_counts}
         
         # Store execution time
         execution_time = time.time() - start_time
@@ -283,42 +213,26 @@ FINAL ANSWER: [Your final answer with units/explanation]
             total_correct=correct
         )
         
-        # Add execution time and parallel info to results for reporting
+        # Add execution time for reporting
         benchmark_results.execution_time = execution_time
         benchmark_results.max_workers = max_workers
         
         return benchmark_results
     
     def _process_single_question(self, data: Dict) -> EvaluationResult:
-        """Process a single question - designed for parallel execution"""
-        question_id = data['question_id']
-        question = data['question']
-        context = data['context']
-        expected = data['expected']
-        q_type = data['q_type']
+        """Process a single question"""
+        response = self.answer_question(data['question'], data['context'])
+        is_correct, reasoning = self.evaluator.evaluate_answer(data['question'], response['answer'], data['expected'])
         
-        try:
-            # Get agent response (single API call for classification + reasoning)
-            response = self.answer_question(question, context)
-            
-            # Evaluate with exact match requirement
-            is_correct, reasoning = self.evaluator.evaluate_answer(question, response['answer'], expected)
-            
-            return EvaluationResult(
-                question_id=question_id,
-                question=question,
-                agent_answer=response['answer'],
-                expected_answer=expected,
-                is_correct=is_correct,
-                confidence_score=response['confidence'],
-                question_type=q_type,
-                reasoning_analysis=reasoning,
-                rag_found=response['rag_found'],
-                rag_content=response['rag_content']
-            )
-            
-        except Exception as e:
-            logger.error(f"Error in _process_single_question for {question_id}: {e}")
-            return EvaluationResult(
-                question_id, question, f"Error: {e}", expected, False, 0.0, q_type, str(e), False, ""
-            )
+        return EvaluationResult(
+            question_id=data['question_id'],
+            question=data['question'],
+            agent_answer=response['answer'],
+            expected_answer=data['expected'],
+            is_correct=is_correct,
+            confidence_score=response['confidence'],
+            question_type=data['q_type'],
+            reasoning_analysis=reasoning,
+            rag_found=response['rag_found'],
+            rag_content=response['rag_content']
+        )

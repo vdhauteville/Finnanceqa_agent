@@ -4,29 +4,11 @@ A comprehensive AI-powered agent for answering financial questions using Retriev
 
 ## Features
 
-🧠 **Intelligent Question Classification**
-- Automatically classifies questions as CONCEPTUAL, BASIC_TACTICAL, or ASSUMPTION_TACTICAL
-- Adapts reasoning approach based on question type
-
-📚 **Hybrid Knowledge Base**
-- Hardcoded financial calculation rules for core concepts
-- PDF textbook integration with intelligent chunking
-- Table of contents parsing for better organization
-
-⚡ **Optimized Performance** 
-- Token-optimized prompts for cost efficiency
-- Rate limiting and retry logic for API stability
-- Parallel processing with configurable workers
-
-🎯 **GAAP vs Non-GAAP Aware**
-- Automatically identifies accounting standards
-- Handles adjustments for non-GAAP measures
-- Clear documentation of calculation assumptions
-
-📊 **Comprehensive Evaluation**
-- Detailed accuracy metrics by question type
-- RAG utilization analysis
-- Execution time tracking and optimization
+🧠 **Question Classification** - Automatically categorizes questions  
+📚 **RAG Integration** - Uses hardcoded rules + PDF textbook  
+⚡ **Parallel Processing** - Fast evaluation with rate limiting  
+🎯 **GAAP/Non-GAAP Aware** - Handles different accounting standards  
+📊 **Simple Evaluation** - Clean accuracy metrics and CSV output
 
 ## Installation
 
@@ -93,15 +75,9 @@ Test on small subset:
 python -m finance_qa_agent_final.main --subset 10 --random
 ```
 
-Advanced usage with custom settings:
+Custom settings:
 ```bash
-python -m finance_qa_agent_final.main \
-    --subset 50 \
-    --workers 2 \
-    --delay 1.0 \
-    --pdf data/Valuation.pdf \
-    --output results.csv \
-    --seed 123
+python -m finance_qa_agent_final.main --subset 50 --workers 1 --output my_results.csv
 ```
 
 ## Configuration Options
@@ -114,7 +90,7 @@ python -m finance_qa_agent_final.main \
 | `--workers` | `2` | Number of parallel workers |
 | `--output` | `results.csv` | Output file for results |
 | `--seed` | `42` | Random seed for reproducible results |
-| `--delay` | `0.5` | Delay between requests (seconds) |
+
 | `--pdf` | `data/Valuation.pdf` | Path to PDF textbook |
 | `--single-test` | `False` | Run single question test |
 
