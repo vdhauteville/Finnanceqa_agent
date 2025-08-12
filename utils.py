@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 def retry_with_exponential_backoff(
     func,
-    max_retries: int = 5,
-    base_delay: float = 1.0,
-    max_delay: float = 60.0
+    max_retries: int = 8,
+    base_delay: float = 2.0,
+    max_delay: float = 120.0
 ):
     """Retry function with exponential backoff for rate limiting"""
     for attempt in range(max_retries):

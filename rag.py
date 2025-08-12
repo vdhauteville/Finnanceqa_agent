@@ -34,26 +34,26 @@ class FinancialRAG:
         self.chunk_embeddings = self.embedder.encode(chunk_texts)
     
     def _get_financial_rules(self) -> List[Dict]:
-        """Core financial calculation rules from FinanceQA paper and common practices"""
+        """Core financial rules (concise but complete)"""
         return [
             {
-                'text': 'For Accounts Payable Days: use AVERAGE accounts payable balance, not end-of-period. Formula: (Average AP / COGS) * 365',
+                'text': 'Accounts Payable Days: Use AVERAGE AP balance. Formula: (Average AP / COGS) * 365',
                 'topic': 'working_capital'
             },
             {
-                'text': 'Diluted shares = Basic shares + dilutive securities (options, warrants, convertibles). Only include if dilutive (exercise price < current price).',
+                'text': 'Diluted shares = Basic shares + dilutive securities. Include options/warrants only if exercise price < current price.',
                 'topic': 'diluted_shares'
             },
             {
-                'text': 'EBITDA adjustments: Add back operating lease costs under new accounting standards (ASC 842). Operating leases are now capitalized.',
+                'text': 'EBITDA adjustments: Add back operating lease costs under ASC 842. Operating leases now capitalized.',
                 'topic': 'ebitda'
             },
             {
-                'text': 'Variable lease assets estimation: If not stated, assume ratio of variable lease assets to operating lease assets equals ratio of variable lease costs to total operating lease costs.',
+                'text': 'Variable lease estimation: Variable lease asset ratio = variable lease cost ratio when not stated.',
                 'topic': 'lease_analysis'
             },
             {
-                'text': 'Working cash assumption: Use 2% of revenue when specific working cash requirements not provided. Take minimum of total cash or calculated amount.',
+                'text': 'Working cash: Use 2% of revenue when not specified. Take minimum of total cash or calculated amount.',
                 'topic': 'working_capital'
             }
         ]
@@ -154,13 +154,13 @@ class FinancialRAG:
                     content = matches[0].strip()
                     if len(content) > 100:  # Only include substantial content
                         # Split large sections into smaller chunks
-                        if len(content) > 2000:
+                        if len(content) > 1000:
                             # Split by paragraphs
                             paragraphs = content.split('\n\n')
                             current_chunk = ""
                             
                             for para in paragraphs:
-                                if len(current_chunk) + len(para) > 1500:
+                                if len(current_chunk) + len(para) > 800:
                                     if current_chunk:
                                         chunks.append({
                                             'text': f"{section_title}\n\n{current_chunk}",
@@ -209,7 +209,7 @@ class FinancialRAG:
                 continue
             
             # Check if adding this paragraph would make chunk too long
-            if len(current_chunk) + len(para) > 1500 and current_chunk:
+            if len(current_chunk) + len(para) > 800 and current_chunk:
                 chunks.append({
                     'text': current_chunk,
                     'topic': 'textbook_content',

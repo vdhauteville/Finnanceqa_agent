@@ -34,6 +34,8 @@ def main():
     parser.add_argument('--output', default='results.csv', help='Output file for results')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducible subsets (default: 42)')
     parser.add_argument('--pdf', default='data/Valuation.pdf', help='Path to PDF textbook')
+    parser.add_argument('--delay', type=float, default=0.5, help='Delay between requests in seconds (default: 0.5)')
+    parser.add_argument('--model', default='gpt-4o', help='OpenAI model to use (default: gpt-4o)')
     parser.add_argument('--single-test', action='store_true', help='Single question test')
     
     args = parser.parse_args()
@@ -46,7 +48,8 @@ def main():
     # Initialize agent
     agent = FinanceQAAgent(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
-        textbook_path=args.pdf
+        textbook_path=args.pdf,
+        model=args.model
     )
     
     # Single question test
@@ -71,7 +74,8 @@ def main():
         subset_size=args.subset,
         random_subset=args.random,
         max_workers=args.workers,
-        random_seed=args.seed
+        random_seed=args.seed,
+        delay_between_requests=args.delay
     )
     
     save_results(agent, results, args.output)

@@ -28,74 +28,56 @@ logger = logging.getLogger(__name__)
 class FinanceQAAgent:
     """Simplified AI Agent for FinanceQA benchmark"""
     
-    def __init__(self, openai_api_key: str, textbook_path: str = None):
+    def __init__(self, openai_api_key: str, textbook_path: str = None, model: str = "gpt-4o"):
         openai.api_key = openai_api_key
         self.client = openai.OpenAI()
+        self.model = model
         self.rag = FinancialRAG(textbook_path)
-        self.evaluator = NumericalEvaluator(self.client)
+        self.evaluator = NumericalEvaluator(self.client, model)
     
     def answer_question(self, question: str, context: str = "") -> Dict:
         """Combined classification and reasoning in single API call"""
-        # Get relevant methodology
-        rag_results = self.rag.query(question, top_k=5) if context.strip() else []
+        # Get relevant methodology (reduced to save tokens)
+        rag_results = self.rag.query(question, top_k=2) if context.strip() else []
         methodology = "\n".join([r['text'] for r in rag_results])
         rag_found = len(rag_results) > 0
         
-        # Single combined prompt that does classification + reasoning
-        system_prompt = """You are a senior financial analyst. You must first classify the question type, then answer it accordingly.
+        # Concise prompt with chain-of-thought
+        system_prompt = """Financial analyst. Use chain-of-thought reasoning.
 
-QUESTION TYPES:
-- CONCEPTUAL: No financial context provided, requires theoretical knowledge
-- BASIC_TACTICAL: Context contains sufficient information to answer directly
-- ASSUMPTION_TACTICAL: Context provided but insufficient, requires reasonable assumptions"""
+TYPES:
+- CONCEPTUAL: Theory only  
+- BASIC_TACTICAL: Use context data
+- ASSUMPTION_TACTICAL: Need assumptions
+
+APPROACH: 1) Classify 2) State formula 3) Extract numbers 4) Calculate 5) Final answer"""
         
-        user_prompt = f"""
-CONTEXT: {context if context.strip() else "No context provided"}
-
-METHODOLOGY: {methodology if methodology else "No specific methodology retrieved"}
-
+        user_prompt = f"""CONTEXT: {context if context.strip() else "None"}
+RULES: {methodology if methodology else "None"}
 QUESTION: {question}
 
-INSTRUCTIONS:
-1. First, classify this question as: CONCEPTUAL, BASIC_TACTICAL, or ASSUMPTION_TACTICAL
-2. Then answer according to your classification using chain-of-thought reasoning:
+Use chain-of-thought:
+1. Classify question type
+2. If GAAP vs non-GAAP, state needed adjustments  
+3. State formula → Extract numbers → Calculate → Convert units
 
-   - If CONCEPTUAL: Provide clear theoretical analysis with examples
-   - If BASIC_TACTICAL: Extract relevant numbers, show formula, calculate step-by-step
-   - If ASSUMPTION_TACTICAL: State reasonable assumptions based on industry standards, then calculate
-
-REASONING APPROACH:
-1. State the relevant formula
-2. Extract numbers from context  
-3. Show calculation steps
-4. Convert units as needed (M/B, %/decimal)
-5. Provide final answer with units
-
-IMPORTANT: GAAP vs NON-GAAP CONSIDERATIONS:
-- First determine if the financial measure is GAAP or non-GAAP
-- GAAP measures: Use standard accounting principles and formulas
-- Non-GAAP measures: May require adjustments (exclude one-time items, stock compensation, etc.)
-- When calculating non-GAAP metrics, clearly state what adjustments are being made
-- Examples: Adjusted EBITDA, Core earnings, Normalized revenue
-
-FORMAT YOUR RESPONSE EXACTLY AS:
-CLASSIFICATION: [CONCEPTUAL/BASIC_TACTICAL/ASSUMPTION_TACTICAL]
-ASSUMPTIONS: [List any assumptions made, or "None" if no assumptions]
-CALCULATIONS: [Show step-by-step work, or reasoning for conceptual questions]
-FINAL ANSWER: [Your final answer with units/explanation]
-"""
+FORMAT:
+CLASSIFICATION: [type]
+ASSUMPTIONS: [list or "None"]
+CALCULATIONS: [step-by-step reasoning]
+FINAL ANSWER: [answer with units]"""
         
         # Single API call for both classification and reasoning
         try:
             def make_api_call():
                 return self.client.chat.completions.create(
-                    model="gpt-4o",
+                    model=self.model,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
                     temperature=0.1,
-                    max_tokens=1200
+                    max_tokens=600
                 )
             
             response = retry_with_exponential_backoff(make_api_call)
@@ -105,6 +87,7 @@ FINAL ANSWER: [Your final answer with units/explanation]
             # Extract classification
             class_match = re.search(r'CLASSIFICATION:\s*(\w+)', answer_text, re.IGNORECASE)
             question_type = class_match.group(1).lower() if class_match else "basic_tactical"
+            
             
             # Extract final answer
             final_answer_match = re.search(r'FINAL ANSWER:\s*(.+?)(?:\n|$)', answer_text, re.IGNORECASE)
@@ -137,7 +120,8 @@ FINAL ANSWER: [Your final answer with units/explanation]
             }
     
     def evaluate_on_dataset(self, csv_path: str, subset_size: Optional[int] = None, 
-                          random_subset: bool = True, max_workers: int = 2, random_seed: int = 42) -> BenchmarkResults:
+                          random_subset: bool = True, max_workers: int = 1, random_seed: int = 42,
+                          delay_between_requests: float = 0.5) -> BenchmarkResults:
         """Evaluate agent on dataset"""
         start_time = time.time()
         
@@ -160,16 +144,18 @@ FINAL ANSWER: [Your final answer with units/explanation]
                 'q_type': q_type
             })
         
-        # Process questions in parallel
+        # Process questions with rate limiting
         results = []
         completed_count = 0
         
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_data = {executor.submit(self._process_single_question, data): data for data in question_data}
-            
-            for future in as_completed(future_to_data):
+        if max_workers == 1:
+            # Serial processing for maximum rate limit safety
+            for i, data in enumerate(question_data):
+                if i > 0:
+                    time.sleep(delay_between_requests)
+                
                 try:
-                    result = future.result()
+                    result = self._process_single_question(data)
                     results.append(result)
                     completed_count += 1
                     
@@ -185,6 +171,33 @@ FINAL ANSWER: [Your final answer with units/explanation]
                     # Skip failed questions
                     completed_count += 1
                     continue
+        else:
+            # Parallel processing for multiple workers
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_data = {}
+                for i, data in enumerate(question_data):
+                    if i > 0:
+                        time.sleep(delay_between_requests)
+                    future_to_data[executor.submit(self._process_single_question, data)] = data
+                
+                for future in as_completed(future_to_data):
+                    try:
+                        result = future.result()
+                        results.append(result)
+                        completed_count += 1
+                        
+                        # Log progress every 10 completions
+                        if completed_count % 10 == 0 or completed_count == len(question_data):
+                            current_accuracy = sum(1 for r in results if r.is_correct) / len(results)
+                            elapsed = time.time() - start_time
+                            logger.info(f"Progress: {completed_count}/{len(question_data)} - "
+                                      f"Accuracy: {current_accuracy:.1%} - "
+                                      f"Elapsed: {elapsed:.1f}s")
+                    
+                    except Exception as e:
+                        # Skip failed questions
+                        completed_count += 1
+                        continue
         
         # Calculate metrics
         total = len(results)
@@ -222,7 +235,14 @@ FINAL ANSWER: [Your final answer with units/explanation]
     def _process_single_question(self, data: Dict) -> EvaluationResult:
         """Process a single question"""
         response = self.answer_question(data['question'], data['context'])
+        
+        # Delay between the 2 API calls per question
+        time.sleep(0.5)
+        
         is_correct, reasoning = self.evaluator.evaluate_answer(data['question'], response['answer'], data['expected'])
+        
+        # Small delay after both API calls
+        time.sleep(0.2)
         
         return EvaluationResult(
             question_id=data['question_id'],

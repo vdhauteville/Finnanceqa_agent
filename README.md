@@ -80,6 +80,16 @@ Custom settings:
 python -m finance_qa_agent_final.main --subset 50 --workers 1 --output my_results.csv
 ```
 
+Conservative rate limiting (avoid 429 errors):
+```bash
+python -m finance_qa_agent_final.main --subset 10 --workers 1 --delay 1.0
+```
+
+Use GPT-4o-mini for higher rate limits:
+```bash
+python -m finance_qa_agent_final.main --subset 10 --model gpt-4o-mini
+```
+
 ## Configuration Options
 
 | Parameter | Default | Description |
@@ -87,11 +97,13 @@ python -m finance_qa_agent_final.main --subset 50 --workers 1 --output my_result
 | `--csv` | `data/financeqa_benchmark.csv` | Path to CSV dataset |
 | `--subset` | `None` | Number of questions to test (None = all) |
 | `--random` | `False` | Use random subset vs first N questions |
-| `--workers` | `2` | Number of parallel workers |
+| `--workers` | `1` | Number of parallel workers (conservative for rate limiting) |
 | `--output` | `results.csv` | Output file for results |
 | `--seed` | `42` | Random seed for reproducible results |
 
 | `--pdf` | `data/Valuation.pdf` | Path to PDF textbook |
+| `--delay` | `0.5` | Delay between requests in seconds |
+| `--model` | `gpt-4o` | OpenAI model to use (gpt-4o, gpt-4o-mini, etc.) |
 | `--single-test` | `False` | Run single question test |
 
 ## Dataset Format
