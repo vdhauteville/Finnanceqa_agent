@@ -5,6 +5,10 @@ Main entry point for the FinanceQA Agent.
 import argparse
 import os
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 try:
     # Try relative imports first (when used as package)
