@@ -12,35 +12,52 @@ A comprehensive AI-powered agent for answering financial questions using Retriev
 
 ## Installation
 
-1. Clone the repository:
+1. Clone the repository and navigate to it:
 ```bash
 git clone <repository_url>
-cd finance_qa_agent_final
+cd claude_agent
 ```
 
-2. Install dependencies:
+2. Activate the pre-configured virtual environment:
 ```bash
-pip install -r requirements.txt
+source myenv/bin/activate  # On macOS/Linux
+# OR
+myenv\Scripts\activate     # On Windows
 ```
 
-3. Set up your OpenAI API key:
+3. Install dependencies:
+```bash
+pip install -r finance_qa_agent_final/requirements.txt
+```
+
+4. Set up your OpenAI API key:
 ```bash
 export OPENAI_API_KEY="your-api-key-here"
 ```
+Or create a `.env` file in the project root:
+```
+OPENAI_API_KEY=your-api-key-here
+```
 
-4. (Optional) Place your PDF textbook in the `data/` directory as `data/Valuation.pdf`
+5. Navigate to the main agent directory:
+```bash
+cd finance_qa_agent_final
+```
+
+Note: The PDF textbook (`Valuation.pdf`) is already included in the `data/` directory.
 
 ## Quick Start
 
 ### Basic Usage
 
 ```python
-from finance_qa_agent_final import FinanceQAAgent
+# From within the finance_qa_agent_final directory
+from agent import FinanceQAAgent
 
 # Initialize the agent
 agent = FinanceQAAgent(
     openai_api_key="your-api-key",
-    textbook_path="data/Valuation.pdf"  # Optional
+    textbook_path="data/Valuation.pdf"  # PDF is included
 )
 
 # Answer a single question
@@ -55,39 +72,44 @@ print(f"Classification: {response['question_type']}")
 
 ### Command Line Interface
 
+First, make sure you're in the `finance_qa_agent_final` directory:
+```bash
+cd finance_qa_agent_final  # If not already there
+```
+
 Run a single question test:
 ```bash
-python -m finance_qa_agent_final.main --single-test
+python main.py --single-test
 ```
 
 Evaluate on a dataset:
 ```bash
-python -m finance_qa_agent_final.main --csv your_dataset.csv --subset 100 --random
+python main.py --csv your_dataset.csv --subset 100 --random
 ```
 
 Test on full benchmark dataset:
 ```bash
-python -m finance_qa_agent_final.main --subset 100 --random
+python main.py --subset 100 --random
 ```
 
 Test on small subset:
 ```bash
-python -m finance_qa_agent_final.main --subset 10 --random
+python main.py --subset 10 --random
 ```
 
 Custom settings:
 ```bash
-python -m finance_qa_agent_final.main --subset 50 --workers 1 --output my_results.csv
+python main.py --subset 50 --workers 1 --output my_results.csv
 ```
 
 Conservative rate limiting (avoid 429 errors):
 ```bash
-python -m finance_qa_agent_final.main --subset 10 --workers 1 --delay 1.0
+python main.py --subset 10 --workers 1 --delay 1.0
 ```
 
 Use GPT-4o-mini for higher rate limits:
 ```bash
-python -m finance_qa_agent_final.main --subset 10 --model gpt-4o-mini
+python main.py --subset 10 --model gpt-4o-mini
 ```
 
 ## Configuration Options

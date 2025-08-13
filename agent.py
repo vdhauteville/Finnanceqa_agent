@@ -133,8 +133,21 @@ FINAL ANSWER: [answer with units]"""
         # Prepare question data
         question_data = []
         for idx, row in df.iterrows():
-            context = '' if pd.isna(row.get('context', '')) else str(row.get('context', ''))
-            q_type = 'basic_tactical' if context.strip() else 'conceptual'
+            # Fix: Properly handle null/NaN context values for conceptual questions
+            raw_context = row.get('context', '')
+            if pd.isna(raw_context) or raw_context is None:
+                context = ''
+            else:
+                context = str(raw_context)
+            
+            # Normalize question type - READ FROM CSV COLUMN
+            q_type_raw = str(row.get('question_type', '')).lower()
+            if 'assumption' in q_type_raw:
+                q_type = 'assumption_tactical'
+            elif 'conceptual' in q_type_raw:
+                q_type = 'conceptual'
+            else:
+                q_type = 'basic_tactical' if context.strip() else 'conceptual'
             
             question_data.append({
                 'question_id': f"q_{idx}",
@@ -155,9 +168,18 @@ FINAL ANSWER: [answer with units]"""
                     time.sleep(delay_between_requests)
                 
                 try:
+                    # Log each question being processed
+                    q_type = data['q_type'].upper()
+                    q_preview = data['question'][:50] + "..." if len(data['question']) > 50 else data['question']
+                    print(f"Processing Q{completed_count+1} [{q_type}]: {q_preview}")
+                    
                     result = self._process_single_question(data)
                     results.append(result)
                     completed_count += 1
+                    
+                    # Show result immediately
+                    status = "✓" if result.is_correct else "✗"
+                    print(f"  {status} {'CORRECT' if result.is_correct else 'INCORRECT'}")
                     
                     # Log progress every 10 completions
                     if completed_count % 10 == 0 or completed_count == len(question_data):
@@ -183,8 +205,14 @@ FINAL ANSWER: [answer with units]"""
                 for future in as_completed(future_to_data):
                     try:
                         result = future.result()
+                        data = future_to_data[future]
                         results.append(result)
                         completed_count += 1
+                        
+                        # Show completed question
+                        q_type = data['q_type'].upper()
+                        status = "✓" if result.is_correct else "✗"
+                        print(f"Q{completed_count} [{q_type}]: {status} {'CORRECT' if result.is_correct else 'INCORRECT'}")
                         
                         # Log progress every 10 completions
                         if completed_count % 10 == 0 or completed_count == len(question_data):
