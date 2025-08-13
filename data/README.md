@@ -5,7 +5,7 @@ This directory contains the data files used by the FinanceQA Agent.
 ## Contents
 
 - **`Valuation.pdf`** - PDF textbook for RAG knowledge base
-- **`financeqa_benchmark.csv`** - Full FinanceQA benchmark dataset (~2,900 questions)
+- **`financeqa_benchmark.csv`** - Full FinanceQA benchmark dataset (148 questions)
 
 ## Adding Your Own Data
 

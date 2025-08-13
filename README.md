@@ -4,10 +4,9 @@ A comprehensive AI-powered agent for answering financial questions using Retriev
 
 ## Installation
 
-1. Clone the repository and navigate to it:
+1. Clone the repository:
 ```bash
 git clone <repository_url>
-cd claude_agent
 ```
 
 2. Activate the pre-configured virtual environment:

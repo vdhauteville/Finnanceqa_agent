@@ -109,14 +109,23 @@ response = agent.answer_question(
 
 ## Performance Metrics
 
-| Metric | Value | Baseline |
-|--------|-------|----------|
-| Overall Accuracy | TBD | 54.1% |
-| Basic Tactical | TBD | TBD |
-| Assumption Tactical | TBD | TBD |
-| Conceptual | TBD | TBD |
-| RAG Utilization | TBD | N/A |
-| Processing Speed | TBD | N/A |
+| Metric | Value | 
+|--------|-------|
+| Overall Accuracy | 20.3% |
+| Basic Tactical | 31.6% | 
+| Assumption Tactical | 2.2% |
+| Conceptual | 26.6% |
+
+### Evaluation Results Screenshot
+
+after running
+```bash
+python3 run.py --workers 2 --delay 0.5 --model gpt-4o
+```
+
+![Performance Results](performance_results.png)
+
+*Detailed performance breakdown showing accuracy metrics by question type and overall evaluation summary.*
 
 ## Data Sources
 
