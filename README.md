@@ -2,14 +2,6 @@
 
 A comprehensive AI-powered agent for answering financial questions using Retrieval Augmented Generation (RAG) and chain-of-thought reasoning.
 
-## Features
-
-🧠 **Question Classification** - Automatically categorizes questions  
-📚 **RAG Integration** - Uses hardcoded rules + PDF textbook  
-⚡ **Parallel Processing** - Fast evaluation with rate limiting  
-🎯 **GAAP/Non-GAAP Aware** - Handles different accounting standards  
-📊 **Simple Evaluation** - Clean accuracy metrics and CSV output
-
 ## Installation
 
 1. Clone the repository and navigate to it:
@@ -146,49 +138,6 @@ Required columns:
 Optional columns:
 - `question_type`: Question classification (auto-detected if not provided)
 
-## Knowledge Sources
-
-### Hardcoded Financial Rules
-The agent includes pre-configured rules for:
-- Accounts Payable Days calculation
-- Diluted shares computation
-- EBITDA adjustments
-- Variable lease assets estimation
-- Working cash assumptions
-
-### PDF Textbook Integration
-- Automatic text extraction from PDF files
-- Table of contents parsing for better organization
-- Intelligent chunking (1500 characters per chunk)
-- Section-based organization when possible
-
-## Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   PDF Textbook  │    │ Hardcoded Rules │    │  User Question  │
-│                 │    │                 │    │                 │
-└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
-          │                      │                      │
-          └──────────┬───────────┘                      │
-                     │                                  │
-              ┌──────▼──────┐                          │
-              │   RAG System │                          │
-              │             │                          │
-              └──────┬──────┘                          │
-                     │                                  │
-                     └──────────┬───────────────────────┘
-                                │
-                         ┌──────▼──────┐
-                         │   LLM Agent │
-                         │   (GPT-4o)  │
-                         └──────┬──────┘
-                                │
-                         ┌──────▼──────┐
-                         │   Answer +  │
-                         │ Evaluation  │
-                         └─────────────┘
-```
 
 ## Output
 
@@ -205,43 +154,6 @@ The agent generates comprehensive reports including:
 - RAG utilization analysis
 - Failed cases analysis
 - Execution timing
-
-### Console Output
-```
-==================================================
-FINANCEQA BENCHMARK RESULTS
-==================================================
-Dataset: 100 questions
-Overall Accuracy: 67.0% (67/100)
-Paper Baseline: 54.1%
-vs Baseline: +12.9%
-
-By Question Type:
-  Basic Tactical: 75.0% (30/40)
-  Assumption Tactical: 60.0% (24/40)  
-  Conceptual: 65.0% (13/20)
-
-RAG Usage: 58/100 questions (58.0%)
-```
-
-## Performance Optimization
-
-### Rate Limiting
-- Automatic retry with exponential backoff
-- Configurable request delays
-- Reduced parallel workers to stay within API limits
-
-### Token Optimization  
-- Concise prompts (~40% token reduction)
-- Efficient RAG chunk selection
-- Optimized evaluation criteria
-
-### Error Handling
-- Graceful handling of rate limits
-- Skip persistent failures rather than marking incorrect
-- Detailed logging for debugging
-
-## Troubleshooting
 
 ### Common Issues
 
